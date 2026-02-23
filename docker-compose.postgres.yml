@@ -1,0 +1,31 @@
+services:
+  raven:
+    environment:
+      NUXT_DATABASE_URL: ${DATABASE_URL:-postgres://raven:raven@postgres:5432/raven}
+      DATABASE_URL: ${DATABASE_URL:-postgres://raven:raven@postgres:5432/raven}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-phase0-change-me}
+      SESSION_SECRET: ${SESSION_SECRET:-phase0-change-me}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: raven-postgres
+    environment:
+      POSTGRES_DB: raven
+      POSTGRES_USER: raven
+      POSTGRES_PASSWORD: raven
+    volumes:
+      - raven_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raven -d raven"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  raven_pg_data:

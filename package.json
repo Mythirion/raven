@@ -1,0 +1,28 @@
+{
+  "name": "raven",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "start": "nuxt start",
+    "preview": "nuxt preview",
+    "typecheck": "nuxt typecheck",
+    "lint": "nuxt typecheck",
+    "test": "node src/server/api/ops/health.smoke-test.mjs",
+    "migrate": "node src/scripts/migrate.mjs"
+  },
+  "dependencies": {
+    "nuxt": "^4.1.3",
+    "pg": "^8.13.1",
+    "better-sqlite3": "^11.8.1"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.13.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

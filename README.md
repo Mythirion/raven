@@ -1,93 +1,109 @@
-# Email Client
+# Raven
 
+Raven is a self-hostable, Docker-first web email client foundation built with Nuxt 4, TypeScript, and Tailwind.
 
+This repository currently contains **Phase 0 foundations**:
 
-## Getting started
+- app/runtime scaffold,
+- health endpoint and service/repository boundaries,
+- baseline migration tooling,
+- Docker Compose profiles for SQLite (default) and Postgres (optional).
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+## Prerequisites
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+- Docker + Docker Compose
+- (Optional for local non-container commands) Node.js 20+
 
-## Add your files
+## Quick Start (SQLite profile, default)
 
-* [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
-
+```bash
+docker compose up --build -d
+curl -sS http://localhost:3000/api/ops/health
 ```
-cd existing_repo
-git remote add origin https://gitlab.internal.adais.co.uk/development/email-client.git
-git branch -M main
-git push -uf origin main
+
+Expected: health response with `checks.database.engine` set to `sqlite`.
+
+## Quick Start (Postgres profile)
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml up --build -d
+curl -sS http://localhost:3000/api/ops/health
 ```
 
-## Integrate with your tools
+Expected: health response with `checks.database.engine` set to `postgres`.
 
-* [Set up project integrations](http://gitlab.internal.adais.co.uk/development/email-client/-/settings/integrations)
+## Migrations
 
-## Collaborate with your team
+Migrations are automatically executed at container startup via `docker/entrypoint.sh`.
 
-* [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+To run manually:
 
-## Test and Deploy
+```bash
+# SQLite mode
+docker compose exec -T raven node src/scripts/migrate.mjs
 
-Use the built-in continuous integration in GitLab.
+# Postgres mode
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml exec -T raven node src/scripts/migrate.mjs
+```
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## Validation Commands
 
-***
+```bash
+npm run lint
+npm run test
+```
 
-# Editing this README
+- `lint` runs `nuxt typecheck`
+- `test` runs a Phase 0 smoke check co-located with the API surface under test (`src/server/api/ops/health.smoke-test.mjs`)
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## Useful Docker Commands
 
-## Suggestions for a good README
+```bash
+# View container status
+docker compose ps
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+# View logs
+docker compose logs -f raven
 
-## Name
-Choose a self-explaining name for your project.
+# Stop default profile
+docker compose down
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+# Stop Postgres profile
+docker compose -f docker-compose.yml -f docker-compose.postgres.yml down
+```
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Task Automation (Make)
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+Following QA workflow recommendations, a `Makefile` is provided to standardize common Docker-first operations.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+> **Important:** `make` is used for **developer/automation convenience only** on the host machine.
+> Production/runtime behavior remains **Docker-only** (containers, entrypoint, migrations, and service startup do not depend on `make`).
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+# Default SQLite profile
+make up
+make ps
+make health
+make migrate
+make smoke
+make logs
+make down
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+# Postgres profile
+make up-pg
+make ps-pg
+make health
+make migrate-pg
+make smoke-pg
+make logs-pg
+make down-pg
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+This keeps build/run/test/migrate commands consistent for local development and CI scripting.
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## Phase 0 References
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- `docs/STEERING.md`
+- `docs/SPECIFICATION.md`
+- `docs/IMPLEMENTATION_PLAN.md`
+- `docs/PHASE_0_FOUNDATIONS.md`

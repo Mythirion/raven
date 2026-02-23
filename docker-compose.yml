@@ -1,0 +1,21 @@
+services:
+  raven:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: raven
+    ports:
+      - "3000:3000"
+    environment:
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-phase0-change-me}
+      SESSION_SECRET: ${SESSION_SECRET:-phase0-change-me}
+      NUXT_SQLITE_PATH: ${SQLITE_PATH:-/data/app.db}
+      SQLITE_PATH: ${SQLITE_PATH:-/data/app.db}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - raven_data:/data
+    restart: unless-stopped
+
+volumes:
+  raven_data:
