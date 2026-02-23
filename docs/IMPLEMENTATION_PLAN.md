@@ -86,6 +86,17 @@ Post-MVP direction includes PWA support and mobile-adaptive UI.
 
 ## Phase 0 — Foundations (Week 1)
 
+**Status:** ✅ Completed (Commit `c8c8627`)
+
+**Completion Notes**
+
+- `src/`-first project layout established and reflected in docs/spec.
+- Docker-first runtime validated for SQLite (default) and Postgres (optional profile).
+- Health endpoint (`GET /api/ops/health`) returns DB engine/status correctly across profiles.
+- Migration-on-start behavior implemented in container entrypoint.
+- Developer automation added via host-side `Makefile` (non-production dependency).
+- Deterministic dependency lockfile generated and committed (`package-lock.json`).
+
 **Goals**
 
 - Establish repository baseline and architecture skeleton.
