@@ -193,3 +193,32 @@ Phase 1 implementation is now functionally complete with the originally required
 ### 9.3 Residual note
 
 - Optional Postgres-profile parity validation remains recommended as an execution follow-up (`make qa-pg`) where environment support is available.
+
+## 10. Addendum — Frontend Modularity Refactor (Phase 1)
+
+To improve reuse and component-based architecture without changing Phase 1 feature scope, the accounts/auth page scaffold was modularized.
+
+### 10.1 Addendum goals
+
+- Reduce monolithic page logic in `src/pages/accounts.vue`.
+- Increase UI and state reuse for future Phase 2+ account/sync UX.
+- Keep behavior aligned with existing API/security contracts.
+
+### 10.2 Addendum deliverables
+
+- New composable for account domain state/actions:
+  - `src/composables/useAccounts.ts`
+    - list/create/test/delete actions
+    - centralized `busy`, `errorMessage`, `successMessage`, and account collection state
+- New focused account UI components:
+  - `src/components/accounts/AuthLoginPanel.vue`
+  - `src/components/accounts/SessionPanel.vue`
+  - `src/components/accounts/AccountListPanel.vue`
+  - `src/components/accounts/AccountCreateForm.vue`
+- `src/pages/accounts.vue` refactored into an orchestration layer that composes `useAuth` + `useAccounts` and delegates rendering/actions to the above components.
+
+### 10.3 Constraints preserved
+
+- No relaxation of Phase 1 security controls (auth, CSRF, ownership, secret handling).
+- No endpoint contract expansion outside approved Phase 1 API surface.
+- Docker-first workflow and existing QA targets remain the default validation path.
