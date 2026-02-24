@@ -11,6 +11,7 @@
     "typecheck": "nuxt typecheck",
     "lint": "nuxt typecheck",
     "test": "node src/server/api/ops/health.smoke-test.mjs",
+    "test:phase1": "node src/server/api/phase1.regression-test.mjs",
     "migrate": "node src/scripts/migrate.mjs"
   },
   "dependencies": {
@@ -19,6 +20,9 @@
     "better-sqlite3": "^11.8.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.15.2",
     "@nuxtjs/tailwindcss": "^6.13.2",
     "typescript": "^5.6.3"
   },

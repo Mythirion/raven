@@ -1,8 +1,12 @@
 <script setup lang="ts">
 const isMobileNavOpen = ref(false)
+const auth = useAuth()
+
+await auth.ensureLoaded()
 
 const navItems = [
   { label: 'Phase 0 Dashboard', to: '/' },
+  { label: 'Accounts', to: '/accounts' },
   { label: 'Health Endpoint', to: '/api/ops/health' },
 ]
 
@@ -25,8 +29,12 @@ const closeMobileNav = () => {
             Menu
           </button>
           <span class="text-base font-semibold">Raven</span>
-          <span class="hidden rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 sm:inline">Phase 0 Foundations</span>
+          <span class="hidden rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600 sm:inline">Phase 1 In Progress</span>
         </div>
+        <StatusBadge
+          :label="auth.state.value.status === 'loading' ? 'Loading auth' : auth.state.value.user ? `Signed in: ${auth.state.value.user.email}` : 'Signed out'"
+          :tone="auth.state.value.user ? 'success' : auth.state.value.status === 'loading' ? 'warn' : 'neutral'"
+        />
       </div>
     </header>
 

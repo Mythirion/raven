@@ -1,3 +1,6 @@
+import { SESSION_COOKIE_NAME, resolveSessionUserId } from '../services/auth/session.service'
+import { readCookie } from './cookies'
+
 export interface RequestContext {
   requestId: string
   userId: string | null
@@ -18,10 +21,10 @@ function resolveRequestId(event: HeaderReadableEvent): string {
 }
 
 export function getRequestContext(event: HeaderReadableEvent): RequestContext {
-  // Phase 0 scaffold: user identity placeholder.
-  // Phase 1 auth work will replace this with validated session identity.
+  const token = readCookie(event, SESSION_COOKIE_NAME)
+
   return {
     requestId: resolveRequestId(event),
-    userId: null,
+    userId: resolveSessionUserId(token),
   }
 }

@@ -2,6 +2,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-01-01',
   devtools: { enabled: true },
   srcDir: 'src/',
+  serverDir: 'src/server',
   modules: ['@nuxtjs/tailwindcss'],
   css: ['~/assets/css/tailwind.css'],
   typescript: {

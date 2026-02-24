@@ -206,9 +206,13 @@ Phase 0 is complete only when all of the following are true:
 
 ## Phase 1 — Accounts + Security Core (Weeks 2–3)
 
+**Status:** ✅ Complete (SQLite/default Docker profile validated)
+
 **Goals**
 
 - Implement account lifecycle and secure credential handling.
+- Establish multi-user ownership enforcement for account-scoped operations.
+- Lock in auth/session and API protection patterns used by all later phases.
 
 **Deliverables**
 
@@ -216,6 +220,100 @@ Phase 0 is complete only when all of the following are true:
 - Accounts CRUD + `POST /api/accounts/:id/test`
 - Encrypted credential persistence
 - CSRF + validation middleware foundations
+- Ownership-aware service and repository checks for account access
+- Regression tests for auth/session, validation, CSRF, and account ownership boundaries
+
+### Phase 1 Detailed Implementation Scope
+
+See dedicated execution package: `docs/PHASE_1_ACCOUNTS_SECURITY_CORE.md`.
+
+### Phase 1 Agent Collaboration Output
+
+#### @freddie (Frontend Reviewer) — Accounts & Auth UX
+
+**Findings**
+
+- Account onboarding and auth states are high-friction surfaces; weak UX here will block Phase 2/3 validation.
+- Reusable form primitives and clear error-state handling are needed before mailbox connectivity screens grow.
+
+**Recommended changes**
+
+- Build an auth/session-aware shell state (logged-out, loading, logged-in).
+- Implement account management UI scaffold with accessible form semantics and validation feedback.
+- Standardize account status badges and connectivity-test feedback patterns for consistency.
+
+**Optional nice-to-have improvements**
+
+- Add a lightweight component demo route for account form controls to accelerate iteration in later phases.
+
+#### @brian (Backend Reviewer) — Auth, Accounts, Ownership Boundaries
+
+**Findings**
+
+- Phase 1 is the decision point for durable ownership-safe API contracts.
+- Early auth/session mistakes will propagate to sync/messages/compose routes in Phases 2–4.
+
+**Recommended changes**
+
+- Implement strict route → service → repository layering for all auth/accounts endpoints.
+- Add user-scoped repository methods (`findByIdForUser`, `deleteForUser`, etc.) to prevent cross-account access.
+- Add typed domain errors for auth failure, forbidden access, invalid credentials, and connectivity-test failures.
+
+**Optional nice-to-have improvements**
+
+- Add a shared endpoint factory/helper for applying validation + auth + error normalization consistently.
+
+#### @stephen (Security Analyst) — Security Controls Baseline
+
+**Findings**
+
+- Credential handling and session security are the top Phase 1 risks.
+- CSRF and validation controls must be enforced before account mutation routes are opened.
+
+**Recommended changes**
+
+- Enforce secure cookie defaults (`HttpOnly`, `Secure` in production, `SameSite=Lax` minimum).
+- Implement CSRF token issuance/verification for mutating routes.
+- Encrypt mailbox credentials using `APP_ENCRYPTION_KEY` with authenticated encryption.
+- Add audit events for login success/failure and account create/update/delete/test actions.
+
+**Optional nice-to-have improvements**
+
+- Add rate-limiting guardrails on login and account connectivity test routes.
+
+#### @tommy (QA Engineer) — Phase 1 Test Strategy
+
+**Findings**
+
+- Smoke tests are insufficient for auth/account correctness and ownership safety.
+- Route-level regression coverage is needed before sync engine work begins.
+
+**Recommended changes**
+
+- Add API regression tests for login/logout/session lifecycle.
+- Add accounts CRUD tests covering validation and ownership enforcement.
+- Add negative tests for CSRF failures and malformed payloads.
+- Add connectivity test endpoint coverage (success/failure + redacted error output expectations).
+
+**Optional nice-to-have improvements**
+
+- Add compact test-fixture builders for users/accounts to reduce test setup duplication.
+
+### Phase 1 Expanded Exit Criteria
+
+Phase 1 is complete only when all of the following are true:
+
+1. Local login/logout and session persistence work for multiple Raven users.
+2. Account CRUD and connectivity-test routes enforce ownership on every operation.
+3. Mailbox credentials are encrypted at rest; plaintext secrets are never persisted or logged.
+4. CSRF and payload validation protect all mutating auth/account endpoints.
+5. API regressions cover positive and negative security paths (authz/authn/validation/CSRF).
+6. Docker-first run path remains healthy in SQLite default and Postgres optional profiles.
+
+**Current validation note**
+
+- SQLite/default Docker profile: complete and passing (`npm run test`, `npm run test:phase1`).
+- Postgres optional profile: recommended parity pass remains available via `make qa-pg`.
 
 **Exit Criteria**
 
