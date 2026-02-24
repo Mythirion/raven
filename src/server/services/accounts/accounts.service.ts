@@ -10,6 +10,21 @@ import {
 } from '../../repositories/accounts.repository'
 import { encryptSecret } from '../../utils/security'
 
+export interface PublicAccountRecord {
+  id: string
+  userId: string
+  providerLabel: string
+  emailAddress: string
+  imapHost: string
+  imapPort: number
+  imapTls: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpTls: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface AccountInput {
   providerLabel: string
   emailAddress: string
@@ -20,6 +35,36 @@ export interface AccountInput {
   smtpPort: number
   smtpTls: boolean
   secret: string
+}
+
+function toPublicAccount(account: {
+  id: string
+  userId: string
+  providerLabel: string
+  emailAddress: string
+  imapHost: string
+  imapPort: number
+  imapTls: boolean
+  smtpHost: string
+  smtpPort: number
+  smtpTls: boolean
+  createdAt: string
+  updatedAt: string
+}): PublicAccountRecord {
+  return {
+    id: account.id,
+    userId: account.userId,
+    providerLabel: account.providerLabel,
+    emailAddress: account.emailAddress,
+    imapHost: account.imapHost,
+    imapPort: account.imapPort,
+    imapTls: account.imapTls,
+    smtpHost: account.smtpHost,
+    smtpPort: account.smtpPort,
+    smtpTls: account.smtpTls,
+    createdAt: account.createdAt,
+    updatedAt: account.updatedAt,
+  }
 }
 
 function normalizeRequiredString(value: unknown, fieldName: string): string {
@@ -33,7 +78,7 @@ function normalizeRequiredString(value: unknown, fieldName: string): string {
 
 function normalizePort(value: unknown, fieldName: string): number {
   const port = Number(value)
-  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  if ((port % 1) !== 0 || port < 1 || port > 65535) {
     throw new DomainError('VALIDATION_ERROR', `${fieldName} must be a valid port`, 400)
   }
 
@@ -57,7 +102,8 @@ function normalizeTls(value: unknown): boolean {
 }
 
 export async function listUserAccounts(userId: string) {
-  return listAccountsForUser(userId)
+  const accounts = await listAccountsForUser(userId)
+  return accounts.map((account) => toPublicAccount(account))
 }
 
 export async function createUserAccount(userId: string, input: AccountInput) {
@@ -73,7 +119,8 @@ export async function createUserAccount(userId: string, input: AccountInput) {
     encryptedSecret: await encryptSecret(normalizeRequiredString(input.secret, 'secret')),
   }
 
-  return createAccountForUser(userId, normalized)
+  const account = await createAccountForUser(userId, normalized)
+  return toPublicAccount(account)
 }
 
 export async function patchUserAccount(userId: string, accountId: string, input: Partial<AccountInput>) {
@@ -112,7 +159,7 @@ export async function patchUserAccount(userId: string, accountId: string, input:
     throw new DomainError('ACCOUNT_NOT_FOUND', 'Account not found', 404)
   }
 
-  return updated
+  return toPublicAccount(updated)
 }
 
 export async function removeUserAccount(userId: string, accountId: string) {

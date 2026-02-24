@@ -8,8 +8,8 @@ services:
       - "3000:3000"
     environment:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
-      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:-phase0-change-me}
-      SESSION_SECRET: ${SESSION_SECRET:-phase0-change-me}
+      APP_ENCRYPTION_KEY: ${APP_ENCRYPTION_KEY:?APP_ENCRYPTION_KEY must be set}
+      SESSION_SECRET: ${SESSION_SECRET:?SESSION_SECRET must be set}
       NUXT_SQLITE_PATH: ${SQLITE_PATH:-/data/app.db}
       SQLITE_PATH: ${SQLITE_PATH:-/data/app.db}
       LOG_LEVEL: ${LOG_LEVEL:-info}

@@ -191,6 +191,13 @@ Raven is a self-hostable web email client that aggregates multiple inboxes into 
 
 ## 6. Docker Specification
 
+### 6.0 Docker-First Developer Workflow
+
+- Raven is **Docker-first** for local development, testing, and validation.
+- Prefer `docker compose` / `make` targets that execute commands inside containers over host-level package manager commands.
+- Direct host `npm` usage should be treated as exceptional (for example, when explicitly required for a container build/debug scenario).
+- Validation and CI docs should assume containerized execution paths by default.
+
 ## 6.1 Container Design
 
 - Multi-stage build

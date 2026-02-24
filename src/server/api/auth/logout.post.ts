@@ -9,6 +9,8 @@ import { recordAuditEvent } from '../../services/audit/audit.service'
 
 export default defineEventHandler(async (event) => {
   const context = getRequestContext(event)
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+  const secureCookies = env?.NODE_ENV === 'production'
 
   try {
     const token = readCookie(event, SESSION_COOKIE_NAME)
@@ -17,7 +19,7 @@ export default defineEventHandler(async (event) => {
     appendSetCookie(event, makeCookie(SESSION_COOKIE_NAME, '', {
       maxAgeSeconds: 0,
       sameSite: 'Lax',
-      secure: false,
+      secure: secureCookies,
       httpOnly: true,
       path: '/',
     }))
@@ -25,7 +27,7 @@ export default defineEventHandler(async (event) => {
     appendSetCookie(event, makeCookie(CSRF_COOKIE_NAME, '', {
       maxAgeSeconds: 0,
       sameSite: 'Lax',
-      secure: false,
+      secure: secureCookies,
       httpOnly: false,
       path: '/',
     }))
