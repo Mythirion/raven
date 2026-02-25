@@ -3,24 +3,6 @@ import { readCookie } from './cookies'
 
 export const CSRF_COOKIE_NAME = 'raven_csrf'
 
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-
-  return btoa(binary)
-}
-
-function base64ToBytes(value: string): Uint8Array {
-  const decoded = atob(value)
-  const bytes = new Uint8Array(decoded.length)
-  for (let i = 0; i < decoded.length; i += 1) {
-    bytes[i] = decoded.charCodeAt(i)
-  }
-  return bytes
-}
-
 function getKeyMaterial(): string {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
   const key = (env?.APP_ENCRYPTION_KEY || '').trim()
@@ -33,8 +15,7 @@ function getKeyMaterial(): string {
 
 async function deriveEncryptionKey(usages: Array<'encrypt' | 'decrypt'>): Promise<CryptoKey> {
   const material = new TextEncoder().encode(getKeyMaterial())
-  const digest = await crypto.subtle.digest('SHA-256', material)
-
+  const digest = await crypto.subtle.digest('SHA-256', material as BufferSource)
   return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, usages)
 }
 
@@ -42,9 +23,24 @@ export async function encryptSecret(plaintext: string): Promise<string> {
   const key = await deriveEncryptionKey(['encrypt'])
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const data = new TextEncoder().encode(plaintext)
-  const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data)
+  const encrypted = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv as BufferSource },
+    key,
+    data as BufferSource,
+  )
 
-  return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(encrypted))}`
+  let ivBinary = ''
+  for (let i = 0; i < iv.length; i += 1) {
+    ivBinary += String.fromCharCode(iv[i] ?? 0)
+  }
+
+  const payloadBytes = new Uint8Array(encrypted)
+  let payloadBinary = ''
+  for (let i = 0; i < payloadBytes.length; i += 1) {
+    payloadBinary += String.fromCharCode(payloadBytes[i] ?? 0)
+  }
+
+  return `${btoa(ivBinary)}:${btoa(payloadBinary)}`
 }
 
 export async function decryptSecret(ciphertext: string): Promise<string> {
@@ -53,12 +49,25 @@ export async function decryptSecret(ciphertext: string): Promise<string> {
     throw new DomainError('DECRYPTION_FAILED', 'Encrypted secret has invalid format', 500)
   }
 
-  const iv = base64ToBytes(parts[0] || '')
-  const payload = base64ToBytes(parts[1] || '')
+  const ivDecoded = atob(parts[0] || '')
+  const payloadDecoded = atob(parts[1] || '')
+  const iv = new Uint8Array(ivDecoded.length)
+  const payload = new Uint8Array(payloadDecoded.length)
+  for (let i = 0; i < ivDecoded.length; i += 1) {
+    iv[i] = ivDecoded.charCodeAt(i)
+  }
+  for (let i = 0; i < payloadDecoded.length; i += 1) {
+    payload[i] = payloadDecoded.charCodeAt(i)
+  }
+
   const key = await deriveEncryptionKey(['decrypt'])
 
   try {
-    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, payload)
+    const decrypted = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv as BufferSource },
+      key,
+      payload as BufferSource,
+    )
     return new TextDecoder().decode(new Uint8Array(decrypted))
   }
   catch {

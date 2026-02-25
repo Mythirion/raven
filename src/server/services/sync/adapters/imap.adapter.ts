@@ -1,6 +1,7 @@
 import { ImapFlow } from 'imapflow'
 import type { AccountRecord } from '../../../repositories/accounts.repository'
 import { decryptSecret } from '../../../utils/security'
+import { DomainError } from '../../../utils/domain-error'
 import type { AdapterFolder, AdapterMessage, AdapterSyncResult, SyncProviderAdapter } from './types'
 
 const MAX_INITIAL_MESSAGES = 20
@@ -24,28 +25,58 @@ function normalizeRole(specialUse: string | null | undefined, path: string): str
 }
 
 async function withClient<T>(account: AccountRecord, run: (client: ImapFlow) => Promise<T>): Promise<T> {
-  const password = await decryptSecret(account.encryptedSecret)
-  const client = new ImapFlow({
-    host: account.imapHost,
-    port: account.imapPort,
-    secure: account.imapTls,
-    auth: {
-      user: account.emailAddress,
-      pass: password,
-    },
-  })
-
-  await client.connect()
   try {
-    return await run(client)
-  }
-  finally {
+    const password = await decryptSecret(account.encryptedSecret)
+    const client = new ImapFlow({
+      host: account.imapHost,
+      port: account.imapPort,
+      secure: account.imapTls,
+      auth: {
+        user: account.emailAddress,
+        pass: password,
+      },
+    })
+
+    await client.connect()
     try {
-      await client.logout()
+      return await run(client)
     }
-    catch {
-      // ignore close failures
+    finally {
+      try {
+        await client.logout()
+      }
+      catch {
+        // ignore close failures
+      }
     }
+  }
+  catch (error) {
+    const message = error instanceof Error ? error.message.toLowerCase() : ''
+
+    if (
+      message.includes('auth')
+      || message.includes('invalid login')
+      || message.includes('invalid credentials')
+      || message.includes('login failed')
+    ) {
+      throw new DomainError('SYNC_AUTH_FAILED', 'Provider authentication failed', 401)
+    }
+
+    if (
+      message.includes('econnrefused')
+      || message.includes('enotfound')
+      || message.includes('etimedout')
+      || message.includes('timed out')
+      || message.includes('network')
+    ) {
+      throw new DomainError('SYNC_PROVIDER_UNAVAILABLE', 'Provider is unavailable', 503)
+    }
+
+    if (error instanceof DomainError) {
+      throw error
+    }
+
+    throw new DomainError('SYNC_TRANSIENT_FAILURE', 'Sync run failed', 500)
   }
 }
 
@@ -101,6 +132,10 @@ export const imapSyncAdapter: SyncProviderAdapter = {
 
   async syncFolder(account: AccountRecord, folder: AdapterFolder, cursor: string | null): Promise<AdapterSyncResult> {
     return withClient(account, async (client) => {
+      if (cursor && !/^\d+$/.test(cursor.trim())) {
+        throw new DomainError('SYNC_CURSOR_INVALID', 'Sync cursor is invalid', 409)
+      }
+
       const lock = await client.getMailboxLock(folder.remoteFolderId)
       try {
         const status = await client.status(folder.remoteFolderId, { uidNext: true })

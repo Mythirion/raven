@@ -176,14 +176,19 @@ async function main() {
       'x-csrf-token': auth1.csrfToken,
     },
   })
-  assert.ok([200, 500].includes(syncRun.status))
+  assert.ok([200, 401, 409, 500, 503].includes(syncRun.status))
   if (syncRun.status === 200) {
     assert.equal(syncRun.json?.ok, true)
     assert.ok(syncRun.json?.data?.summary?.syncedFolders >= 0)
   }
   else {
     assert.equal(syncRun.json?.ok, false)
-    assert.equal(syncRun.json?.error?.code, 'SYNC_TRANSIENT_FAILURE')
+    assert.ok([
+      'SYNC_TRANSIENT_FAILURE',
+      'SYNC_AUTH_FAILED',
+      'SYNC_CURSOR_INVALID',
+      'SYNC_PROVIDER_UNAVAILABLE',
+    ].includes(syncRun.json?.error?.code))
   }
 
   const postSyncStatus = await user1.request('/api/ops/sync-status')
@@ -214,9 +219,14 @@ async function main() {
 
   const deleteResult = await deleteAccountWithRetry(user1, auth1.csrfToken, user1AccountId)
   const concurrentSync = await concurrentSyncPromise
-  assert.ok([200, 404, 500].includes(concurrentSync.status))
-  if (concurrentSync.status === 500) {
-    assert.equal(concurrentSync.json?.error?.code, 'SYNC_TRANSIENT_FAILURE')
+  assert.ok([200, 401, 404, 409, 500, 503].includes(concurrentSync.status))
+  if ([401, 409, 500, 503].includes(concurrentSync.status)) {
+    assert.ok([
+      'SYNC_TRANSIENT_FAILURE',
+      'SYNC_AUTH_FAILED',
+      'SYNC_CURSOR_INVALID',
+      'SYNC_PROVIDER_UNAVAILABLE',
+    ].includes(concurrentSync.json?.error?.code))
   }
 
   const listAfterDelete = await user1.request('/api/accounts')

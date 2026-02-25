@@ -321,6 +321,18 @@ Phase 1 is complete only when all of the following are true:
 
 ## Phase 2 — Sync Engine (Weeks 3–5)
 
+**Status:** ✅ Complete (SQLite + Postgres parity validated; IMAP mode validated)
+
+**Completion Notes**
+
+- Containerized typecheck is passing after runtime cache-path hardening (`/app/node_modules/.cache`, `/app/.nuxt`, `/app/.npm`).
+- SQLite/default profile validation is passing:
+  - `npm run typecheck`
+  - `node src/server/api/phase1.regression-test.mjs`
+  - `node src/server/api/phase2.regression-test.mjs`
+- IMAP-mode runtime path validated with `SYNC_ADAPTER_MODE=imap` and Phase 1/2 regressions passing.
+- Postgres optional profile parity validated with fresh volume bootstrap and passing typecheck + Phase 1/2 regressions.
+
 **Goals**
 
 - Build reliable mailbox synchronization and cursor tracking.

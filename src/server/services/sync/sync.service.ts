@@ -53,6 +53,19 @@ interface RuntimeSyncState {
   lastErrorMessage: string | null
 }
 
+const RETRYABLE_SYNC_ERROR_CODES = [
+  'SYNC_TRANSIENT_FAILURE',
+  'SYNC_PROVIDER_UNAVAILABLE',
+]
+
+function normalizeSyncError(error: unknown): DomainError {
+  if (error instanceof DomainError) {
+    return error
+  }
+
+  return new DomainError('SYNC_TRANSIENT_FAILURE', 'Sync run failed', 500)
+}
+
 const runtimeStateByAccountId = new Map<string, RuntimeSyncState>()
 let schedulerInitialized = false
 let schedulerTimer: ReturnType<typeof setInterval> | null = null
@@ -183,11 +196,21 @@ export async function runSyncForAccount(userId: string, account: AccountRecord):
     }
   }
   catch (error) {
-    runtime.retryCount += 1
-    runtime.state = runtime.retryCount <= getSyncMaxRetries() ? 'retrying' : 'failed'
-    runtime.lastErrorCode = 'SYNC_TRANSIENT_FAILURE'
-    runtime.lastErrorMessage = error instanceof Error ? error.message : 'Unknown sync failure'
-    runtime.nextRetryAt = new Date(Date.now() + (Math.min(60, (2 ** runtime.retryCount)) * 1000)).toISOString()
+    const normalized = normalizeSyncError(error)
+    const retryable = RETRYABLE_SYNC_ERROR_CODES.indexOf(normalized.code) >= 0
+
+    if (retryable) {
+      runtime.retryCount += 1
+      runtime.state = runtime.retryCount <= getSyncMaxRetries() ? 'retrying' : 'failed'
+      runtime.nextRetryAt = new Date(Date.now() + (Math.min(60, (2 ** runtime.retryCount)) * 1000)).toISOString()
+    }
+    else {
+      runtime.state = 'failed'
+      runtime.nextRetryAt = null
+    }
+
+    runtime.lastErrorCode = normalized.code
+    runtime.lastErrorMessage = normalized.message
 
     await recordAuditEvent({
       userId,
@@ -201,7 +224,7 @@ export async function runSyncForAccount(userId: string, account: AccountRecord):
       },
     })
 
-    throw new DomainError('SYNC_TRANSIENT_FAILURE', 'Sync run failed', 500)
+    throw normalized
   }
 }
 

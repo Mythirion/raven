@@ -51,6 +51,15 @@ function toneForState(state: SyncStatusRow['state'] | undefined): 'neutral' | 's
             />
             <span>messages: {{ props.syncStatusByAccountId[account.id]?.messageCount || 0 }}</span>
             <span>cursors: {{ props.syncStatusByAccountId[account.id]?.cursorCount || 0 }}</span>
+            <span v-if="props.syncStatusByAccountId[account.id]?.nextRetryAt">
+              next retry: {{ props.syncStatusByAccountId[account.id]?.nextRetryAt }}
+            </span>
+            <span
+              v-if="props.syncStatusByAccountId[account.id]?.lastErrorCode"
+              class="text-rose-700"
+            >
+              {{ props.syncStatusByAccountId[account.id]?.lastErrorCode }}
+            </span>
           </div>
         </div>
         <div class="flex gap-2">

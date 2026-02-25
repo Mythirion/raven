@@ -227,7 +227,20 @@ export function useAccounts() {
       setSuccess('Sync run completed.')
     }
     catch (error) {
-      setError(messageFromError(error, 'Sync run failed'))
+      const payload = apiErrorPayload(error)
+      if (payload?.code === 'SYNC_AUTH_FAILED') {
+        setError('Sync failed due to provider authentication. Re-check mailbox credentials and try again.')
+      }
+      else if (payload?.code === 'SYNC_PROVIDER_UNAVAILABLE') {
+        setError('Sync provider is temporarily unavailable. Please retry shortly.')
+      }
+      else if (payload?.code === 'SYNC_CURSOR_INVALID') {
+        setError('Sync cursor is invalid and must be rebuilt. Please run sync again.')
+      }
+      else {
+        setError(messageFromError(error, 'Sync run failed'))
+      }
+
       await refreshSyncStatus()
     }
     finally {
@@ -256,6 +269,6 @@ export function useAccounts() {
   }
 }
 
-async function fetcher<T = unknown>(url: string, options?: Parameters<typeof $fetch>[1]): Promise<T> {
-  return $fetch<T>(url, options)
+async function fetcher<T = unknown>(url: string, options?: unknown): Promise<T> {
+  return $fetch<T>(url, options as never)
 }

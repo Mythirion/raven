@@ -49,7 +49,8 @@ COPY --from=builder /app/nuxt.config.ts ./nuxt.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src ./src
 
-RUN mkdir -p /data/attachments && chown -R raven:raven /data
+RUN mkdir -p /data/attachments /app/node_modules/.cache /app/.nuxt /app/.npm && \
+    chown -R raven:raven /data /app/node_modules/.cache /app/.nuxt /app/.npm
 
 USER raven
 

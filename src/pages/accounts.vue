@@ -93,7 +93,7 @@ if (auth.state.value.user) {
     </BasePanel>
 
     <template v-else-if="authReady">
-      <SessionPanel :busy="accountState.busy.value" :user="auth.state.value.user" :on-logout="handleLogout" />
+      <SessionPanel :busy="accountState.busy.value" :user="auth.state.value.user!" :on-logout="handleLogout" />
       <AccountListPanel
         :busy="accountState.busy.value"
         :accounts="accountState.accounts.value"

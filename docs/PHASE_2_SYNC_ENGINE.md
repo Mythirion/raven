@@ -218,3 +218,63 @@ Phase 2 handoff should provide:
 - Verified sync status API for ops surface integration.
 - Known limitations list (provider caveats, deferred optimizations).
 - Updated regression suite baseline that Phase 3 can extend safely.
+
+## 9. Phase 2 Completion and Handoff Notes
+
+### 9.1 Completion Status
+
+Phase 2 implementation is functionally complete for MVP progression, with the following finalized:
+
+- Sync schema expansion (`threads`, `messages`, `message_bodies`) and cursor persistence in place.
+- Scheduler-driven sync orchestration with bounded concurrency and per-account failure isolation.
+- Adapter mode switch (`stub` and `imap`) with runtime status tracking in `GET /api/ops/sync-status`.
+- Delete-under-sync contention handling and retryable API semantics (`ACCOUNT_DELETE_BUSY`).
+- Phase 2 regression suite coverage for sync flow, ownership boundaries, and delete/sync contention behavior.
+
+### 9.2 Error Taxonomy Alignment (Implemented)
+
+Runtime and API paths now distinguish key sync failure classes:
+
+- `SYNC_AUTH_FAILED`
+- `SYNC_PROVIDER_UNAVAILABLE`
+- `SYNC_CURSOR_INVALID`
+- `SYNC_TRANSIENT_FAILURE`
+
+Retry scheduling applies to retryable classes (`SYNC_TRANSIENT_FAILURE`, `SYNC_PROVIDER_UNAVAILABLE`) and avoids blind retries for non-retryable conditions.
+
+### 9.3 Known Limitations (Accepted for Phase 3 Start)
+
+- `stub` adapter remains default for local/dev bootstrap; production-like validation should use `SYNC_ADAPTER_MODE=imap`.
+- Cursor invalidation currently surfaces explicit failure (`SYNC_CURSOR_INVALID`) rather than performing auto-rebuild of cursor lineage.
+- Latency target verification for IDLE-capable providers is environment-dependent and should be captured in deployment-specific QA evidence.
+
+### 9.4 Phase 3 Readiness Checklist
+
+Before Phase 3 feature build begins, maintainers should ensure:
+
+1. IMAP-mode validation has been executed in target environment(s).
+2. SQLite default profile regression is green (`test`, `test:phase1`, `test:phase2`).
+3. Optional Postgres profile parity run is captured for this commit range.
+4. Any provider-specific caveats discovered during IMAP validation are added to this document.
+
+### 9.5 Validation Evidence Snapshot (Current)
+
+Validated in containerized workflow for this commit range:
+
+- SQLite/default profile:
+  - `docker compose exec -T raven npm run typecheck` ✅
+  - `docker compose exec -T raven node src/server/api/phase1.regression-test.mjs` ✅
+  - `docker compose exec -T raven node src/server/api/phase2.regression-test.mjs` ✅
+- IMAP adapter mode runtime path:
+  - container environment confirmed with `SYNC_ADAPTER_MODE=imap` ✅
+  - Phase 1 and Phase 2 regressions green in IMAP mode ✅
+- Postgres optional profile parity:
+  - initial run exposed expected local-volume credential mismatch (`28P01`) due to stale Postgres volume state.
+  - rerun with clean profile volumes (`down -v` then `up --build`) stabilized runtime.
+  - typecheck + Phase 1 + Phase 2 regressions green in Postgres profile ✅
+
+### 9.6 Phase 2 Handover Artifact
+
+Phase 2 handover package is recorded in:
+
+- `docs/PHASE_2_HANDOFF.md`
