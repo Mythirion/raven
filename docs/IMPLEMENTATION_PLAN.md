@@ -380,6 +380,10 @@ Phase 1 is complete only when all of the following are true:
 - Ops health endpoint/UI (`/api/ops/health`, queue + sync panels)
 - Performance pass (pagination/virtualization)
 - Mobile responsive behavior validation for inbox/detail/compose core flows
+- Auth UX hardening pass:
+  - explicit **Create Raven User** onboarding flow (separate from sign-in),
+  - explicit **Sign in** flow,
+  - clear copy distinguishing Raven-user auth from mailbox-account linking.
 
 **Exit Criteria**
 

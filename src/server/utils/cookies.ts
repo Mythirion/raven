@@ -2,12 +2,32 @@ interface HeaderReadableEvent {
   node?: {
     req?: {
       headers?: Record<string, string | string[] | undefined>
+      connection?: {
+        encrypted?: boolean
+      }
+      socket?: {
+        encrypted?: boolean
+      }
     }
     res?: {
       getHeader?: (name: string) => number | string | string[] | undefined
       setHeader?: (name: string, value: number | string | readonly string[]) => void
     }
   }
+}
+
+export function isSecureRequest(event: HeaderReadableEvent): boolean {
+  const forwardedProto = event.node?.req?.headers?.['x-forwarded-proto']
+  const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto
+  if (proto) {
+    return proto.split(',')[0]?.trim().toLowerCase() === 'https'
+  }
+
+  if (event.node?.req?.socket?.encrypted || event.node?.req?.connection?.encrypted) {
+    return true
+  }
+
+  return false
 }
 
 export function readCookie(event: HeaderReadableEvent, name: string): string | null {

@@ -1,4 +1,6 @@
 import { probeDatabase } from '../../repositories/system.repository'
+import { ensureSyncSchedulerInitialized, getSyncSchedulerState } from '../sync/sync.service'
+import { getSyncAdapterMode } from '../sync/adapters'
 
 export interface HealthStatus {
   service: 'raven'
@@ -16,13 +18,19 @@ export interface HealthStatus {
     }
     scheduler: {
       initialized: boolean
-      mode: 'placeholder'
+      mode: 'active' | 'disabled'
+    }
+    sync: {
+      adapterMode: 'stub' | 'imap'
     }
   }
 }
 
 export async function getHealthStatus(): Promise<HealthStatus> {
+  ensureSyncSchedulerInitialized()
   const database = await probeDatabase()
+  const scheduler = getSyncSchedulerState()
+  const adapterMode = getSyncAdapterMode()
 
   return {
     service: 'raven',
@@ -33,9 +41,9 @@ export async function getHealthStatus(): Promise<HealthStatus> {
         ok: true,
       },
       database,
-      scheduler: {
-        initialized: true,
-        mode: 'placeholder',
+      scheduler,
+      sync: {
+        adapterMode,
       },
     },
   }

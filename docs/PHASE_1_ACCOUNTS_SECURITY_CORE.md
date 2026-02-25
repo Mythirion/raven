@@ -162,7 +162,7 @@ Phase 1 is complete only when all of the following are true:
 
 ## 8. Phase 1 Risks to Track
 
-- **Auth/session drift risk:** inconsistent cookie/session handling across routes.
+- **Auth/session drift risk:** inconsistent e/session handling across routes.
 - **Ownership bypass risk:** non-user-scoped data access in repositories/services.
 - **Secret exposure risk:** accidental logging or unsafe error propagation.
 - **Security coverage gaps:** incomplete CSRF/validation enforcement on new endpoints.

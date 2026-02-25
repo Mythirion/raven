@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import BaseButton from '../ui/BaseButton.vue'
+import BasePanel from '../ui/BasePanel.vue'
+
 interface AuthUser {
   email: string
 }

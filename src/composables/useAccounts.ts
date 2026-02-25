@@ -20,17 +20,68 @@ export interface AccountCreateInput {
   secret: string
 }
 
+export interface SyncStatusRow {
+  accountId: string
+  providerLabel: string
+  emailAddress: string
+  state: 'idle' | 'syncing' | 'retrying' | 'failed'
+  lastAttemptedAt: string | null
+  lastSuccessfulAt: string | null
+  retryCount: number
+  nextRetryAt: string | null
+  lastErrorCode: string | null
+  lastErrorMessage: string | null
+  cursorCount: number
+  messageCount: number
+}
+
+export interface SyncedMessageRow {
+  id: string
+  remoteMessageId: string
+  subject: string
+  fromAddress: string | null
+  toAddress: string | null
+  receivedAt: string | null
+  snippet: string | null
+  bodyText: string | null
+}
+
 function messageFromError(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback
 }
 
+function apiErrorPayload(error: unknown): { code?: string, message?: string } | null {
+  const asRecord = error as {
+    data?: { error?: { code?: string, message?: string } }
+    response?: { _data?: { error?: { code?: string, message?: string } } }
+  }
+
+  const direct = asRecord?.data?.error
+  if (direct) {
+    return {
+      code: direct.code,
+      message: direct.message,
+    }
+  }
+
+  const responseData = asRecord?.response?._data?.error
+  if (responseData) {
+    return {
+      code: responseData.code,
+      message: responseData.message,
+    }
+  }
+
+  return null
+}
+
 export function useAccounts() {
-  const nuxtApp = useNuxtApp()
-  const fetcher = nuxtApp.$fetch
   const busy = ref(false)
   const errorMessage = ref<string | null>(null)
   const successMessage = ref<string | null>(null)
   const accounts = ref<AccountRow[]>([])
+  const syncStatusByAccountId = ref<Record<string, SyncStatusRow>>({})
+  const recentMessagesByAccountId = ref<Record<string, SyncedMessageRow[]>>({})
 
   function clearMessages() {
     errorMessage.value = null
@@ -49,6 +100,38 @@ export function useAccounts() {
 
   function clearAccounts() {
     accounts.value = []
+    syncStatusByAccountId.value = {}
+    recentMessagesByAccountId.value = {}
+  }
+
+  async function loadRecentMessages(accountId: string, limit = 12) {
+    try {
+      const response = await fetcher<{ data?: { messages?: SyncedMessageRow[] } }>(`/api/accounts/${accountId}/messages?limit=${limit}`)
+      recentMessagesByAccountId.value = {
+        ...recentMessagesByAccountId.value,
+        [accountId]: response?.data?.messages || [],
+      }
+    }
+    catch {
+      recentMessagesByAccountId.value = {
+        ...recentMessagesByAccountId.value,
+        [accountId]: [],
+      }
+    }
+  }
+
+  async function refreshSyncStatus() {
+    try {
+      const response = await fetcher<{ data?: { sync?: SyncStatusRow[] } }>('/api/ops/sync-status')
+      const next: Record<string, SyncStatusRow> = {}
+      for (const row of response?.data?.sync || []) {
+        next[row.accountId] = row
+      }
+      syncStatusByAccountId.value = next
+    }
+    catch {
+      syncStatusByAccountId.value = {}
+    }
   }
 
   async function refreshAccounts() {
@@ -57,6 +140,7 @@ export function useAccounts() {
     try {
       const response = await fetcher<{ data?: { accounts?: AccountRow[] } }>('/api/accounts')
       accounts.value = response?.data?.accounts || []
+      await refreshSyncStatus()
     }
     catch (error) {
       setError(messageFromError(error, 'Could not load accounts'))
@@ -118,7 +202,33 @@ export function useAccounts() {
       setSuccess('Account removed.')
     }
     catch (error) {
+      const payload = apiErrorPayload(error)
+      if (payload?.code === 'ACCOUNT_DELETE_BUSY') {
+        setError('This account is syncing right now. Please try deleting again in a few seconds.')
+        return
+      }
+
       setError(messageFromError(error, 'Could not remove account'))
+    }
+    finally {
+      busy.value = false
+    }
+  }
+
+  async function runAccountSync(accountId: string, csrfHeaders: Record<string, string>) {
+    busy.value = true
+    clearMessages()
+    try {
+      await fetcher(`/api/accounts/${accountId}/sync`, {
+        method: 'POST',
+        headers: csrfHeaders,
+      })
+      await refreshSyncStatus()
+      setSuccess('Sync run completed.')
+    }
+    catch (error) {
+      setError(messageFromError(error, 'Sync run failed'))
+      await refreshSyncStatus()
     }
     finally {
       busy.value = false
@@ -130,13 +240,22 @@ export function useAccounts() {
     errorMessage,
     successMessage,
     accounts,
+    syncStatusByAccountId,
+    recentMessagesByAccountId,
     clearMessages,
     setError,
     setSuccess,
     clearAccounts,
     refreshAccounts,
+    refreshSyncStatus,
     createAccount,
     testAccountConnectivity,
     removeAccount,
+    runAccountSync,
+    loadRecentMessages,
   }
+}
+
+async function fetcher<T = unknown>(url: string, options?: Parameters<typeof $fetch>[1]): Promise<T> {
+  return $fetch<T>(url, options)
 }

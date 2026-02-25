@@ -7,6 +7,11 @@ export interface UserRecord {
   updatedAt: string
 }
 
+export interface UserIdentityRecord {
+  id: string
+  email: string
+}
+
 interface NewUserInput {
   email: string
   passwordHash: string
@@ -167,6 +172,39 @@ export async function createUser(input: NewUserInput): Promise<UserRecord> {
 
     const row = db.prepare('SELECT * FROM users WHERE id = ? LIMIT 1').get(userId) as Record<string, unknown>
     return mapSqliteUser(row) as UserRecord
+  }
+  finally {
+    db.close()
+  }
+}
+
+export async function listUsers(): Promise<UserIdentityRecord[]> {
+  const { databaseUrl, sqlitePath } = resolveDbConfig()
+
+  if (databaseUrl) {
+    const { Client } = await import('pg')
+    const client = new Client({ connectionString: databaseUrl })
+    await client.connect()
+    try {
+      const result = await client.query('SELECT id, email FROM users ORDER BY created_at ASC')
+      return result.rows.map((row) => ({
+        id: String(row.id),
+        email: String(row.email),
+      }))
+    }
+    finally {
+      await client.end()
+    }
+  }
+
+  const Database = (await import('better-sqlite3')).default
+  const db = new Database(sqlitePath)
+  try {
+    const rows = db.prepare('SELECT id, email FROM users ORDER BY created_at ASC').all() as Array<Record<string, unknown>>
+    return rows.map((row) => ({
+      id: String(row.id),
+      email: String(row.email),
+    }))
   }
   finally {
     db.close()

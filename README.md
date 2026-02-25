@@ -16,6 +16,22 @@ This repository currently contains **Phase 0 foundations**:
 
 ## Quick Start (SQLite profile, default)
 
+Create a local env file first (required for secrets expected by Compose):
+
+```bash
+cp .env.example .env
+```
+
+Then set strong values for at least:
+
+- `APP_ENCRYPTION_KEY`
+- `SESSION_SECRET`
+
+Optional sync adapter mode (Phase 2):
+
+- `SYNC_ADAPTER_MODE=stub` (default, deterministic stub data)
+- `SYNC_ADAPTER_MODE=imap` (real IMAP folder/message metadata fetch; requires valid account credentials and reachable IMAP host)
+
 ```bash
 docker compose up --build -d
 curl -sS http://localhost:3000/api/ops/health
@@ -55,6 +71,17 @@ npm run test
 
 - `lint` runs `nuxt typecheck`
 - `test` runs a Phase 0 smoke check co-located with the API surface under test (`src/server/api/ops/health.smoke-test.mjs`)
+
+## Real IMAP Trial (Phase 2)
+
+To trial real mailbox sync:
+
+1. Set `SYNC_ADAPTER_MODE=imap` in `.env`.
+2. Restart Raven: `docker compose up -d --build raven`.
+3. Sign in on `/accounts`, add a real mailbox account, then click **Sync now**.
+4. Click **Inspect** to view recently synced message metadata/body sample rows.
+
+If provider connectivity/auth fails, sync status will surface a normalized sync error and retry policy will apply.
 
 ## Useful Docker Commands
 

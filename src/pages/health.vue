@@ -21,13 +21,13 @@ async function handleRefresh() {
 <template>
   <div class="space-y-6">
     <header class="space-y-2">
-      <h1 class="text-2xl font-bold tracking-tight">Raven Dashboard</h1>
+      <h1 class="text-2xl font-bold tracking-tight">Health</h1>
       <p class="text-sm text-slate-600">
-        Core platform, accounts/security, and Phase 2 sync foundations are wired. Use this dashboard to verify service readiness quickly.
+        Live API/database/scheduler health payload from <code>GET /api/ops/health</code>.
       </p>
     </header>
 
-    <BasePanel title="Service Readiness" description="Live status from GET /api/ops/health">
+    <BasePanel title="Service Health" description="Operational health snapshot">
       <div class="mb-4 flex items-center gap-3">
         <StatusBadge
           :label="status === 'pending' ? 'Loading' : status === 'error' ? 'Error' : 'Ready'"

@@ -1,3 +1,5 @@
+import { DomainError } from '../utils/domain-error'
+
 export interface AccountRecord {
   id: string
   userId: string
@@ -27,6 +29,17 @@ export interface AccountMutationInput {
 }
 
 export interface AccountPatchInput extends Partial<AccountMutationInput> {}
+
+function isSqliteBusyError(error: unknown): boolean {
+  const asRecord = error as { code?: string, message?: string }
+  const code = String(asRecord?.code || '')
+  const message = String(asRecord?.message || '').toLowerCase()
+  return code === 'SQLITE_BUSY' || message.includes('database is locked')
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 function resolveDbConfig() {
   const config = useRuntimeConfig()
@@ -308,8 +321,34 @@ export async function deleteAccountForUser(accountId: string, userId: string): P
     const client = new Client({ connectionString: databaseUrl })
     await client.connect()
     try {
+      await client.query('BEGIN')
+
+      const owned = await client.query(
+        'SELECT id FROM mailbox_accounts WHERE id = $1 AND user_id = $2 LIMIT 1',
+        [accountId, userId],
+      )
+      if (!owned.rows[0]) {
+        await client.query('ROLLBACK')
+        return false
+      }
+
+      await client.query(
+        `DELETE FROM message_bodies
+         WHERE message_id IN (SELECT id FROM messages WHERE account_id = $1)`,
+        [accountId],
+      )
+      await client.query('DELETE FROM messages WHERE account_id = $1', [accountId])
+      await client.query('DELETE FROM threads WHERE account_id = $1', [accountId])
+      await client.query('DELETE FROM sync_cursors WHERE account_id = $1', [accountId])
+      await client.query('DELETE FROM folders WHERE account_id = $1', [accountId])
+
       const result = await client.query('DELETE FROM mailbox_accounts WHERE id = $1 AND user_id = $2', [accountId, userId])
+      await client.query('COMMIT')
       return (result.rowCount || 0) > 0
+    }
+    catch (error) {
+      await client.query('ROLLBACK')
+      throw error
     }
     finally {
       await client.end()
@@ -317,12 +356,56 @@ export async function deleteAccountForUser(accountId: string, userId: string): P
   }
 
   const Database = (await import('better-sqlite3')).default
-  const db = new Database(sqlitePath)
-  try {
-    const result = db.prepare('DELETE FROM mailbox_accounts WHERE id = ? AND user_id = ?').run(accountId, userId)
-    return result.changes > 0
+  const maxAttempts = 10
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const db = new Database(sqlitePath, { timeout: 15000 })
+    try {
+      db.pragma('busy_timeout = 15000')
+      db.exec('BEGIN IMMEDIATE')
+
+      const owned = db.prepare('SELECT id FROM mailbox_accounts WHERE id = ? AND user_id = ? LIMIT 1').get(accountId, userId)
+      if (!owned) {
+        db.exec('ROLLBACK')
+        return false
+      }
+
+      db.prepare(
+        `DELETE FROM message_bodies
+         WHERE message_id IN (SELECT id FROM messages WHERE account_id = ?)`,
+      ).run(accountId)
+      db.prepare('DELETE FROM messages WHERE account_id = ?').run(accountId)
+      db.prepare('DELETE FROM threads WHERE account_id = ?').run(accountId)
+      db.prepare('DELETE FROM sync_cursors WHERE account_id = ?').run(accountId)
+      db.prepare('DELETE FROM folders WHERE account_id = ?').run(accountId)
+
+      const result = db.prepare('DELETE FROM mailbox_accounts WHERE id = ? AND user_id = ?').run(accountId, userId)
+      db.exec('COMMIT')
+      return result.changes > 0
+    }
+    catch (error) {
+      try {
+        db.exec('ROLLBACK')
+      }
+      catch {
+        // ignore rollback errors
+      }
+
+      if (isSqliteBusyError(error) && attempt < maxAttempts) {
+        await wait(attempt * 200)
+        continue
+      }
+
+      if (isSqliteBusyError(error)) {
+        throw new DomainError('ACCOUNT_DELETE_BUSY', 'Account is busy with sync activity. Please retry in a few seconds.', 503)
+      }
+
+      throw error
+    }
+    finally {
+      db.close()
+    }
   }
-  finally {
-    db.close()
-  }
+
+  throw new DomainError('ACCOUNT_DELETE_BUSY', 'Account is busy with sync activity. Please retry in a few seconds.', 503)
 }

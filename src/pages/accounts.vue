@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import type { AccountCreateInput } from '../composables/useAccounts'
+import BasePanel from '../components/ui/BasePanel.vue'
+import AuthLoginPanel from '../components/accounts/AuthLoginPanel.vue'
+import SessionPanel from '../components/accounts/SessionPanel.vue'
+import AccountListPanel from '../components/accounts/AccountListPanel.vue'
+import AccountCreateForm from '../components/accounts/AccountCreateForm.vue'
 
 const auth = useAuth()
 const accountState = useAccounts()
+const authReady = ref(false)
+const selectedInspectAccountId = ref<string | null>(null)
 
 await auth.ensureLoaded()
+authReady.value = true
 
 async function handleLogin(email: string, password: string): Promise<boolean> {
   accountState.clearMessages()
@@ -24,8 +32,17 @@ async function runConnectivityTest(accountId: string) {
   await accountState.testAccountConnectivity(accountId, auth.csrfHeaders())
 }
 
+async function runSync(accountId: string) {
+  await accountState.runAccountSync(accountId, auth.csrfHeaders())
+}
+
 async function deleteAccount(accountId: string) {
   await accountState.removeAccount(accountId, auth.csrfHeaders())
+}
+
+async function inspectMessages(accountId: string) {
+  selectedInspectAccountId.value = accountId
+  await accountState.loadRecentMessages(accountId)
 }
 
 async function submitAccount(input: AccountCreateInput): Promise<boolean> {
@@ -54,7 +71,7 @@ if (auth.state.value.user) {
     <header class="space-y-2">
       <h1 class="text-2xl font-bold tracking-tight">Accounts</h1>
       <p class="text-sm text-slate-600">
-        Phase 1 scaffold: auth state handling plus account list/create/test/delete flows.
+        Manage mailbox accounts with secure ownership boundaries, connectivity checks, and Phase 2 sync controls.
       </p>
     </header>
 
@@ -66,19 +83,43 @@ if (auth.state.value.user) {
     </div>
 
     <AuthLoginPanel
-      v-if="!auth.state.value.user"
+      v-if="authReady && !auth.state.value.user"
       :busy="accountState.busy.value"
       :on-submit="handleLogin"
     />
 
-    <template v-else>
+    <BasePanel v-else-if="!authReady" title="Loading session" description="Checking current authentication state">
+      <p class="text-sm text-slate-600">Please wait…</p>
+    </BasePanel>
+
+    <template v-else-if="authReady">
       <SessionPanel :busy="accountState.busy.value" :user="auth.state.value.user" :on-logout="handleLogout" />
       <AccountListPanel
         :busy="accountState.busy.value"
         :accounts="accountState.accounts.value"
+        :sync-status-by-account-id="accountState.syncStatusByAccountId.value"
+        :on-sync="runSync"
         :on-test="runConnectivityTest"
         :on-delete="deleteAccount"
+        :on-inspect-messages="inspectMessages"
       />
+      <BasePanel
+        v-if="selectedInspectAccountId"
+        title="Recent Synced Messages"
+        description="Inspect latest synced message metadata/body samples"
+      >
+        <ul class="space-y-2">
+          <li
+            v-for="message in (accountState.recentMessagesByAccountId.value[selectedInspectAccountId] || [])"
+            :key="message.id"
+            class="rounded-md border border-slate-200 p-3"
+          >
+            <p class="text-sm font-semibold text-slate-900">{{ message.subject }}</p>
+            <p class="text-xs text-slate-600">{{ message.remoteMessageId }} · {{ message.receivedAt || 'n/a' }}</p>
+            <p class="mt-2 text-xs text-slate-700">{{ message.bodyText || message.snippet || '(no content)' }}</p>
+          </li>
+        </ul>
+      </BasePanel>
       <AccountCreateForm :busy="accountState.busy.value" :on-submit="submitAccount" />
     </template>
   </div>

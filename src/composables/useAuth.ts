@@ -23,12 +23,15 @@ export function useAuth() {
     }
 
     try {
-      const response = await $fetch<{ ok: boolean, data?: { user: AuthUser | null } }>('/api/auth/me')
+      const requestFetch = import.meta.server ? useRequestFetch() : $fetch
+      const response = await requestFetch<{ ok: boolean, data?: { user: AuthUser | null, csrfToken: string | null } }>('/api/auth/me')
       state.value.user = response?.data?.user || null
+      state.value.csrfToken = response?.data?.csrfToken || null
       state.value.status = state.value.user ? 'authenticated' : 'unauthenticated'
     }
     catch {
       state.value.user = null
+      state.value.csrfToken = null
       state.value.status = 'unauthenticated'
     }
   }

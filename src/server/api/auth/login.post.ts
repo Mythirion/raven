@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     const sessionToken = createSession(login.user.id)
     const csrfToken = createCsrfToken()
     const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-    const secureCookies = env?.NODE_ENV === 'production'
+    const secureCookies = String(env?.APP_BASE_URL || '').trim().toLowerCase().indexOf('https://') === 0
 
     appendSetCookie(event, makeCookie(SESSION_COOKIE_NAME, sessionToken, {
       maxAgeSeconds: getSessionTtlSeconds(),

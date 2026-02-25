@@ -12,6 +12,15 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
+function base64ToBytes(value: string): Uint8Array {
+  const decoded = atob(value)
+  const bytes = new Uint8Array(decoded.length)
+  for (let i = 0; i < decoded.length; i += 1) {
+    bytes[i] = decoded.charCodeAt(i)
+  }
+  return bytes
+}
+
 function getKeyMaterial(): string {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
   const key = (env?.APP_ENCRYPTION_KEY || '').trim()
@@ -22,20 +31,39 @@ function getKeyMaterial(): string {
   return key
 }
 
-async function deriveEncryptionKey(): Promise<CryptoKey> {
+async function deriveEncryptionKey(usages: Array<'encrypt' | 'decrypt'>): Promise<CryptoKey> {
   const material = new TextEncoder().encode(getKeyMaterial())
   const digest = await crypto.subtle.digest('SHA-256', material)
 
-  return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, ['encrypt'])
+  return crypto.subtle.importKey('raw', digest, { name: 'AES-GCM' }, false, usages)
 }
 
 export async function encryptSecret(plaintext: string): Promise<string> {
-  const key = await deriveEncryptionKey()
+  const key = await deriveEncryptionKey(['encrypt'])
   const iv = crypto.getRandomValues(new Uint8Array(12))
   const data = new TextEncoder().encode(plaintext)
   const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data)
 
   return `${bytesToBase64(iv)}:${bytesToBase64(new Uint8Array(encrypted))}`
+}
+
+export async function decryptSecret(ciphertext: string): Promise<string> {
+  const parts = String(ciphertext || '').split(':')
+  if (parts.length !== 2) {
+    throw new DomainError('DECRYPTION_FAILED', 'Encrypted secret has invalid format', 500)
+  }
+
+  const iv = base64ToBytes(parts[0] || '')
+  const payload = base64ToBytes(parts[1] || '')
+  const key = await deriveEncryptionKey(['decrypt'])
+
+  try {
+    const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, payload)
+    return new TextDecoder().decode(new Uint8Array(decrypted))
+  }
+  catch {
+    throw new DomainError('DECRYPTION_FAILED', 'Could not decrypt encrypted secret', 500)
+  }
 }
 
 interface CsrfReadableEvent {
