@@ -3,7 +3,7 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 COMPOSE_PG := docker compose -f docker-compose.yml -f docker-compose.postgres.yml
 
-.PHONY: up up-pg down down-pg rebuild rebuild-pg logs logs-pg ps ps-pg health migrate migrate-pg smoke smoke-pg typecheck typecheck-pg phase1 phase1-pg qa qa-pg
+.PHONY: up up-pg down down-pg rebuild rebuild-pg logs logs-pg ps ps-pg health migrate migrate-pg smoke smoke-pg typecheck typecheck-pg phase1 phase1-pg phase2 phase2-pg phase3 phase3-pg phase3-frontend phase3-frontend-pg phase3-deterministic qa qa-pg qa-phase3
 
 up:
 	$(COMPOSE) up --build -d
@@ -62,8 +62,34 @@ phase1:
 phase1-pg:
 	$(COMPOSE_PG) exec -T raven bun run test:phase1
 
+phase2:
+	$(COMPOSE) exec -T raven bun run test:phase2
+
+phase2-pg:
+	$(COMPOSE_PG) exec -T raven bun run test:phase2
+
+phase3:
+	$(COMPOSE) exec -T raven bun run test:phase3
+
+phase3-pg:
+	$(COMPOSE_PG) exec -T raven bun run test:phase3
+
+phase3-frontend:
+	$(COMPOSE) exec -T raven bun run test:phase3:frontend
+
+phase3-frontend-pg:
+	$(COMPOSE_PG) exec -T raven bun run test:phase3:frontend
+
+phase3-deterministic:
+	SYNC_ADAPTER_MODE=stub $(COMPOSE) down --remove-orphans
+	SYNC_ADAPTER_MODE=stub $(COMPOSE) up --build -d
+	$(COMPOSE) exec -T raven node src/server/api/phase3.regression-test.mjs
+
 qa:
 	$(COMPOSE) exec -T raven bun run typecheck && $(COMPOSE) exec -T raven bun run test && $(COMPOSE) exec -T raven bun run test:phase1
 
 qa-pg:
 	$(COMPOSE_PG) exec -T raven bun run typecheck && $(COMPOSE_PG) exec -T raven bun run test && $(COMPOSE_PG) exec -T raven bun run test:phase1
+
+qa-phase3:
+	$(COMPOSE) exec -T raven bun run typecheck && $(COMPOSE) exec -T raven bun run test && $(COMPOSE) exec -T raven bun run test:phase1 && $(COMPOSE) exec -T raven bun run test:phase2 && $(COMPOSE) exec -T raven bun run test:phase3:frontend && $(MAKE) phase3-deterministic

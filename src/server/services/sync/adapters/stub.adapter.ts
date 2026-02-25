@@ -7,6 +7,7 @@ function defaultFoldersForAccount(): AdapterFolder[] {
     { remoteFolderId: 'sent', name: 'Sent', role: 'sent' },
     { remoteFolderId: 'drafts', name: 'Drafts', role: 'drafts' },
     { remoteFolderId: 'archive', name: 'Archive', role: 'archive' },
+    { remoteFolderId: 'trash', name: 'Trash', role: 'trash' },
   ]
 }
 
@@ -27,7 +28,7 @@ function generateAdapterMessages(account: AccountRecord, folder: AdapterFolder, 
       snippet: `Stub sync message ${seq} for ${folder.name}`,
       receivedAt: new Date(Date.now() - ((count - i) * 1000)).toISOString(),
       flagsJson: JSON.stringify({ seen: false }),
-      bodyText: `This is a Phase 2 sync stub message (${seq}) for ${folder.name}.`,
+      bodyText: `This is a Phase 2 sync stub message (${seq}) for ${folder.name}.\n\nSender: sender+${seq}@example.test\nFolder: ${folder.name}\nProvider: ${account.providerLabel}`,
       bodyHtmlSanitized: null,
     })
   }

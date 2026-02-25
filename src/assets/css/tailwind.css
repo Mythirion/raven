@@ -7,7 +7,50 @@
     color-scheme: light;
   }
 
+  :root.theme-dark {
+    color-scheme: dark;
+  }
+
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
+  }
+
+  :root.theme-dark body {
+    @apply bg-slate-950 text-slate-100;
+  }
+
+  :root.theme-dark .bg-white {
+    @apply bg-slate-900;
+  }
+
+  :root.theme-dark .bg-slate-50 {
+    @apply bg-slate-950;
+  }
+
+  :root.theme-dark .bg-slate-100 {
+    @apply bg-slate-800;
+  }
+
+  :root.theme-dark .bg-white\/95 {
+    @apply bg-slate-900/95;
+  }
+
+  :root.theme-dark .border-slate-200,
+  :root.theme-dark .border-slate-300 {
+    @apply border-slate-700;
+  }
+
+  :root.theme-dark .text-slate-900 {
+    @apply text-slate-100;
+  }
+
+  :root.theme-dark .text-slate-700,
+  :root.theme-dark .text-slate-600,
+  :root.theme-dark .text-slate-500 {
+    @apply text-slate-300;
+  }
+
+  :root.theme-dark .hover\:bg-slate-100:hover {
+    @apply bg-slate-800;
   }
 }

@@ -13,6 +13,9 @@
     "test": "node src/server/api/ops/health.smoke-test.mjs",
     "test:phase1": "node src/server/api/phase1.regression-test.mjs",
     "test:phase2": "node src/server/api/phase2.regression-test.mjs",
+    "test:phase3": "node src/server/api/phase3.regression-test.mjs",
+    "test:phase3:frontend": "node src/server/api/phase3.frontend-smoke-test.mjs",
+    "test:phase3:deterministic": "SYNC_ADAPTER_MODE=stub docker compose down --remove-orphans && SYNC_ADAPTER_MODE=stub docker compose up -d --build && docker compose exec -T raven node src/server/api/phase3.regression-test.mjs",
     "migrate": "node src/scripts/migrate.mjs"
   },
   "dependencies": {

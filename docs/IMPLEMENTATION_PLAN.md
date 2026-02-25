@@ -350,6 +350,32 @@ Phase 1 is complete only when all of the following are true:
 
 ## Phase 3 — Reading & Message Actions (Weeks 5–6)
 
+**Status:** ✅ Complete (SQLite/default profile validated, Phase 3 regression + frontend smoke passing)
+
+**Completion Notes**
+
+- Message read surfaces delivered:
+  - unified inbox list and account/folder scoped browsing,
+  - message detail rendering with plaintext and sanitized HTML modes.
+- Message action surfaces delivered:
+  - single-message actions (`mark_read`, `mark_unread`, `star`, `unstar`, `archive`, `delete`),
+  - bulk message actions via dedicated bulk route.
+- Message workspace UX pass delivered:
+  - responsive list/detail behavior with mobile drilldown,
+  - desktop resizable split between list and detail panes,
+  - compact first-line preview with truncation safeguards,
+  - human-friendly date formatting in list rows.
+- Sync/content correctness and readability fixes integrated during Phase 3 hardening:
+  - folder-scoped remote message identity to avoid cross-folder UID collisions,
+  - explicit UID-mode message source download in IMAP adapter,
+  - improved decoded body text cleanup for zero-width/entity artifacts.
+- Validation evidence repeatedly green via Docker-first `make qa-phase3`:
+  - typecheck,
+  - health smoke,
+  - phase1/phase2 regressions,
+  - phase3 frontend smoke,
+  - deterministic phase3 regression.
+
 **Goals**
 
 - Deliver stable read/manage workflows in UI.
