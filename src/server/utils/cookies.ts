@@ -20,12 +20,37 @@ function asHeaderReadableEvent(event: unknown): HeaderReadableEvent {
   return (event || {}) as HeaderReadableEvent
 }
 
+function parseBooleanEnv(raw: string | undefined): boolean | null {
+  const normalized = String(raw || '').trim().toLowerCase()
+  if (!normalized) {
+    return null
+  }
+
+  if (normalized === '1' || normalized === 'true' || normalized === 'yes' || normalized === 'on') {
+    return true
+  }
+  if (normalized === '0' || normalized === 'false' || normalized === 'no' || normalized === 'off') {
+    return false
+  }
+
+  return null
+}
+
+function trustProxyHeaders(): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+  const parsed = parseBooleanEnv(env?.TRUST_PROXY_HEADERS)
+  return parsed === true
+}
+
 export function isSecureRequest(event: unknown): boolean {
   const readable = asHeaderReadableEvent(event)
-  const forwardedProto = readable.node?.req?.headers?.['x-forwarded-proto']
-  const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto
-  if (proto) {
-    return proto.split(',')[0]?.trim().toLowerCase() === 'https'
+
+  if (trustProxyHeaders()) {
+    const forwardedProto = readable.node?.req?.headers?.['x-forwarded-proto']
+    const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto
+    if (proto) {
+      return proto.split(',')[0]?.trim().toLowerCase() === 'https'
+    }
   }
 
   if (readable.node?.req?.socket?.encrypted || readable.node?.req?.connection?.encrypted) {
@@ -54,6 +79,20 @@ export function readCookie(event: unknown, name: string): string | null {
   }
 
   return null
+}
+
+export function shouldUseSecureCookies(event: unknown): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+  const explicit = parseBooleanEnv(env?.COOKIE_SECURE)
+  if (explicit !== null) {
+    return explicit
+  }
+
+  if (isSecureRequest(event)) {
+    return true
+  }
+
+  return String(env?.APP_BASE_URL || '').trim().toLowerCase().startsWith('https://')
 }
 
 export function makeCookie(name: string, value: string, options?: {

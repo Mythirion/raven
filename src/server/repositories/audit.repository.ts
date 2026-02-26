@@ -139,3 +139,49 @@ export async function listRecentAuditEvents(limit = 100): Promise<AuditEventReco
     db.close()
   }
 }
+
+export async function listRecentAuditEventsForUser(userId: string, limit = 100): Promise<AuditEventRecord[]> {
+  const { databaseUrl, sqlitePath } = resolveDbConfig()
+  const safeLimit = Math.max(1, Math.min(500, Math.floor(limit)))
+
+  if (databaseUrl) {
+    const { Client } = await import('pg')
+    const client = new Client({ connectionString: databaseUrl })
+    await client.connect()
+    try {
+      const result = await client.query(
+        `SELECT id, user_id, event_type, resource_type, resource_id, metadata_json, created_at
+         FROM audit_events
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2`,
+        [userId, safeLimit],
+      )
+      return result.rows
+        .map((row: unknown) => mapAuditEvent(row as Record<string, unknown>))
+        .filter((row: AuditEventRecord | null): row is AuditEventRecord => row !== null)
+    }
+    finally {
+      await client.end()
+    }
+  }
+
+  const Database = (await import('better-sqlite3')).default
+  const db = new Database(sqlitePath)
+  try {
+    const rows = db.prepare(
+      `SELECT id, user_id, event_type, resource_type, resource_id, metadata_json, created_at
+       FROM audit_events
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT ?`,
+    ).all(userId, safeLimit) as Record<string, unknown>[]
+
+    return rows
+      .map((row) => mapAuditEvent(row))
+      .filter((row): row is AuditEventRecord => row !== null)
+  }
+  finally {
+    db.close()
+  }
+}

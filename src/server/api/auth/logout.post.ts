@@ -2,15 +2,14 @@ import { errorResponse, successResponse } from '../../utils/api-response'
 import { normalizeError } from '../../utils/domain-error'
 import { logger } from '../../utils/logger'
 import { getRequestContext } from '../../utils/request-context'
-import { appendSetCookie, makeCookie, readCookie } from '../../utils/cookies'
+import { appendSetCookie, makeCookie, readCookie, shouldUseSecureCookies } from '../../utils/cookies'
 import { destroySession, SESSION_COOKIE_NAME } from '../../services/auth/session.service'
 import { CSRF_COOKIE_NAME } from '../../utils/security'
 import { recordAuditEvent } from '../../services/audit/audit.service'
 
 export default defineEventHandler(async (event) => {
   const context = getRequestContext(event)
-  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
-  const secureCookies = String(env?.APP_BASE_URL || '').trim().toLowerCase().indexOf('https://') === 0
+  const secureCookies = shouldUseSecureCookies(event)
 
   try {
     const token = readCookie(event, SESSION_COOKIE_NAME)

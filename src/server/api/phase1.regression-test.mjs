@@ -224,59 +224,77 @@ async function main() {
       password: 'phase1-password',
     },
   })
-  assert.equal(loginUser2.status, 200)
-  assert.equal(loginUser2.json?.ok, true)
-  const csrfUser2 = loginUser2.json?.data?.csrfToken
-  assert.ok(csrfUser2)
+  const signupDisabled = loginUser2.status === 403 && loginUser2.json?.error?.code === 'AUTH_SIGNUP_DISABLED'
 
-  const listUser2 = await client.request('/api/accounts')
-  assert.equal(listUser2.status, 200)
-  assert.equal(listUser2.json?.ok, true)
-  assert.ok(Array.isArray(listUser2.json?.data?.accounts))
-  assert.equal(listUser2.json.data.accounts.length, 0)
+  if (!signupDisabled) {
+    assert.equal(loginUser2.status, 200)
+    assert.equal(loginUser2.json?.ok, true)
+    const csrfUser2 = loginUser2.json?.data?.csrfToken
+    assert.ok(csrfUser2)
 
-  const user2PatchDenied = await client.request(`/api/accounts/${user1AccountId}`, {
-    method: 'PATCH',
-    headers: {
-      'x-csrf-token': csrfUser2,
-    },
-    body: {
-      providerLabel: 'Should not apply',
-    },
-  })
-  assert.equal(user2PatchDenied.status, 404)
-  assert.equal(user2PatchDenied.json?.error?.code, 'ACCOUNT_NOT_FOUND')
+    const listUser2 = await client.request('/api/accounts')
+    assert.equal(listUser2.status, 200)
+    assert.equal(listUser2.json?.ok, true)
+    assert.ok(Array.isArray(listUser2.json?.data?.accounts))
+    assert.equal(listUser2.json.data.accounts.length, 0)
 
-  const user2DeleteDenied = await client.request(`/api/accounts/${user1AccountId}`, {
-    method: 'DELETE',
-    headers: {
-      'x-csrf-token': csrfUser2,
-    },
-  })
-  assert.equal(user2DeleteDenied.status, 404)
-  assert.equal(user2DeleteDenied.json?.error?.code, 'ACCOUNT_NOT_FOUND')
+    const user2PatchDenied = await client.request(`/api/accounts/${user1AccountId}`, {
+      method: 'PATCH',
+      headers: {
+        'x-csrf-token': csrfUser2,
+      },
+      body: {
+        providerLabel: 'Should not apply',
+      },
+    })
+    assert.equal(user2PatchDenied.status, 404)
+    assert.equal(user2PatchDenied.json?.error?.code, 'ACCOUNT_NOT_FOUND')
 
-  const user2TestDenied = await client.request(`/api/accounts/${user1AccountId}/test`, {
-    method: 'POST',
-    headers: {
-      'x-csrf-token': csrfUser2,
-    },
-  })
-  assert.equal(user2TestDenied.status, 404)
-  assert.equal(user2TestDenied.json?.error?.code, 'ACCOUNT_NOT_FOUND')
+    const user2DeleteDenied = await client.request(`/api/accounts/${user1AccountId}`, {
+      method: 'DELETE',
+      headers: {
+        'x-csrf-token': csrfUser2,
+      },
+    })
+    assert.equal(user2DeleteDenied.status, 404)
+    assert.equal(user2DeleteDenied.json?.error?.code, 'ACCOUNT_NOT_FOUND')
 
-  const logoutUser2 = await client.request('/api/auth/logout', {
-    method: 'POST',
-  })
-  assert.equal(logoutUser2.status, 200)
-  assert.equal(logoutUser2.json?.ok, true)
+    const user2TestDenied = await client.request(`/api/accounts/${user1AccountId}/test`, {
+      method: 'POST',
+      headers: {
+        'x-csrf-token': csrfUser2,
+      },
+    })
+    assert.equal(user2TestDenied.status, 404)
+    assert.equal(user2TestDenied.json?.error?.code, 'ACCOUNT_NOT_FOUND')
+
+    const logoutUser2 = await client.request('/api/auth/logout', {
+      method: 'POST',
+    })
+    assert.equal(logoutUser2.status, 200)
+    assert.equal(logoutUser2.json?.ok, true)
+  }
 
   const auditList = await client.request('/api/ops/audit-events')
-  assert.equal(auditList.status, 200)
-  assert.equal(auditList.json?.ok, true)
-  assert.ok(Array.isArray(auditList.json?.data?.events))
+  assert.equal(auditList.status, 401)
+  assert.equal(auditList.json?.ok, false)
+  assert.equal(auditList.json?.error?.code, 'AUTH_UNAUTHORIZED')
 
-  const events = auditList.json.data.events.map((row) => row.eventType)
+  const loginAuditCheck = await client.request('/api/auth/login', {
+    method: 'POST',
+    body: {
+      email: user1Email,
+      password: 'phase1-password',
+    },
+  })
+  assert.equal(loginAuditCheck.status, 200)
+
+  const auditListAuthed = await client.request('/api/ops/audit-events')
+  assert.equal(auditListAuthed.status, 200)
+  assert.equal(auditListAuthed.json?.ok, true)
+  assert.ok(Array.isArray(auditListAuthed.json?.data?.events))
+
+  const events = auditListAuthed.json.data.events.map((row) => row.eventType)
   for (const expected of [
     'auth.login.success',
     'auth.logout.success',

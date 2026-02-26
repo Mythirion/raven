@@ -16,8 +16,16 @@ async function main() {
     throw new Error('Database health check is not ok')
   }
 
+  if (payload?.data?.checks?.database?.engine !== undefined) {
+    throw new Error('Unauthenticated health payload should not expose database engine details')
+  }
+
+  if (payload?.data?.checks?.sync?.adapterMode !== undefined) {
+    throw new Error('Unauthenticated health payload should not expose sync adapter details')
+  }
+
   console.log('[smoke-test] health endpoint passed', {
-    engine: payload.data.checks.database.engine,
+    engine: payload.data.checks.database.engine || 'redacted',
     status: payload.data.status,
   })
 }

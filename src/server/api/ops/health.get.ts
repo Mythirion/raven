@@ -15,7 +15,19 @@ export default defineEventHandler(async (event) => {
       dbEngine: health.checks.database.engine,
     })
 
-    return successResponse(health, {
+    const payload = context.userId
+      ? health
+      : {
+          service: health.service,
+          status: health.status,
+          timestamp: health.timestamp,
+          checks: {
+            api: { ok: health.checks.api.ok },
+            database: { ok: health.checks.database.ok },
+          },
+        }
+
+    return successResponse(payload, {
       requestId: context.requestId,
     })
   }

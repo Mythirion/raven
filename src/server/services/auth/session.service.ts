@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7
+const revokedAfterByUserId: Record<string, number | undefined> = {}
 
 export const SESSION_COOKIE_NAME = 'raven_session'
 
@@ -14,7 +15,11 @@ interface SessionPayload {
 function getSessionSecret(): string {
   const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
   const raw = String(env?.SESSION_SECRET || '').trim()
-  return raw || 'dev-insecure-session-secret'
+  if (!raw) {
+    throw new Error('SESSION_SECRET is required')
+  }
+
+  return raw
 }
 
 function base64UrlEncode(input: string): string {
@@ -76,7 +81,13 @@ export function resolveSessionUserId(token: string | null | undefined): string |
     const payload = JSON.parse(base64UrlDecode(payloadB64)) as Partial<SessionPayload>
     const userId = String(payload.userId || '').trim()
     const expiresAt = Number(payload.expiresAt || 0)
+    const issuedAt = Number(payload.issuedAt || 0)
     if (!userId || !Number.isFinite(expiresAt) || Date.now() >= expiresAt) {
+      return null
+    }
+
+    const revokedAfter = revokedAfterByUserId[userId] || 0
+    if (!Number.isFinite(issuedAt) || issuedAt <= revokedAfter) {
       return null
     }
 
@@ -88,6 +99,32 @@ export function resolveSessionUserId(token: string | null | undefined): string |
 }
 
 export function destroySession(token: string | null | undefined): void {
-  // Stateless signed session token; logout clears client cookie.
-  void token
+  if (!token) {
+    return
+  }
+
+  const [payloadB64, signature] = String(token).split('.')
+  if (!payloadB64 || !signature) {
+    return
+  }
+
+  const expected = signPayload(payloadB64)
+  if (!constantTimeEqual(signature, expected)) {
+    return
+  }
+
+  try {
+    const payload = JSON.parse(base64UrlDecode(payloadB64)) as Partial<SessionPayload>
+    const userId = String(payload.userId || '').trim()
+    const issuedAt = Number(payload.issuedAt || 0)
+    if (!userId || !Number.isFinite(issuedAt)) {
+      return
+    }
+
+    const existing = revokedAfterByUserId[userId] || 0
+    revokedAfterByUserId[userId] = Math.max(existing, issuedAt, Date.now())
+  }
+  catch {
+    // Ignore malformed payloads during best-effort revocation.
+  }
 }

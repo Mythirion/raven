@@ -1,5 +1,5 @@
 import { DomainError } from '../../utils/domain-error'
-import { createUser, findUserByEmail } from '../../repositories/users.repository'
+import { countUsers, createUser, findUserByEmail } from '../../repositories/users.repository'
 
 const PASSWORD_HASH_PREFIX = 'pbkdf2'
 const PBKDF2_ITERATIONS = 210000
@@ -116,6 +116,16 @@ export async function loginWithPassword(email: string, password: string): Promis
   const existing = await findUserByEmail(normalizedEmail)
 
   if (!existing) {
+    const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
+    const rawAllowSelfSignup = String(env?.ALLOW_SELF_SIGNUP || '').trim().toLowerCase()
+    const allowSelfSignup = ['1', 'true', 'yes', 'on'].indexOf(rawAllowSelfSignup) >= 0
+    const userCount = await countUsers()
+    const bootstrapAllowed = userCount === 0
+
+    if (!bootstrapAllowed && !allowSelfSignup) {
+      throw new DomainError('AUTH_SIGNUP_DISABLED', 'Account signup is disabled', 403)
+    }
+
     const passwordHash = await hashPassword(normalizedPassword)
     const created = await createUser({
       email: normalizedEmail,
