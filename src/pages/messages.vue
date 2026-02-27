@@ -10,7 +10,7 @@ const themeMode = useState<'light' | 'dark'>('ui-theme-mode', () => 'light')
 
 await auth.ensureLoaded()
 
-const htmlMode = ref<'text' | 'html'>('text')
+const htmlMode = ref<'text' | 'html'>('html')
 const mobilePane = ref<'list' | 'detail'>('list')
 const workspaceRef = ref<HTMLElement | null>(null)
 const isLargeScreen = ref(false)
@@ -383,11 +383,11 @@ onBeforeUnmount(() => {
               </BaseButton>
             </div>
         <div class="mb-3 flex gap-2">
-          <BaseButton size="sm" :variant="htmlMode === 'text' ? 'primary' : 'secondary'" @click="htmlMode = 'text'">
-            Text
-          </BaseButton>
           <BaseButton size="sm" :variant="htmlMode === 'html' ? 'primary' : 'secondary'" @click="htmlMode = 'html'">
             HTML (sanitized)
+          </BaseButton>
+          <BaseButton size="sm" :variant="htmlMode === 'text' ? 'primary' : 'secondary'" @click="htmlMode = 'text'">
+            Text
           </BaseButton>
         </div>
 
@@ -411,7 +411,7 @@ onBeforeUnmount(() => {
           <div
             v-else
             class="max-h-[calc(70vh-5rem)] overflow-auto break-words rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-800 [&_*]:max-w-full [&_*]:break-words"
-            v-html="messagesState.messageDetail.value.bodyHtmlSanitized || '<p>(no sanitized html body)</p>'"
+            v-html="messagesState.messageDetail.value.bodyHtmlSanitized || `<p>${messagesState.messageDetail.value.bodyText || messagesState.messageDetail.value.snippet || '(no sanitized html body)'}</p>`"
           />
         </div>
           </section>
