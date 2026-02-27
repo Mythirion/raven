@@ -327,9 +327,9 @@ Phase 1 is complete only when all of the following are true:
 
 - Containerized typecheck is passing after runtime cache-path hardening (`/app/node_modules/.cache`, `/app/.nuxt`, `/app/.npm`).
 - SQLite/default profile validation is passing:
-  - `npm run typecheck`
-  - `node src/server/api/phase1.regression-test.mjs`
-  - `node src/server/api/phase2.regression-test.mjs`
+  - `docker compose exec -T raven npm run typecheck`
+  - `docker compose exec -T raven node src/server/api/phase1.regression-test.mjs`
+  - `docker compose exec -T raven node src/server/api/phase2.regression-test.mjs`
 - IMAP-mode runtime path validated with `SYNC_ADAPTER_MODE=imap` and Phase 1/2 regressions passing.
 - Postgres optional profile parity validated with fresh volume bootstrap and passing typecheck + Phase 1/2 regressions.
 

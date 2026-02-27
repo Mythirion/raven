@@ -56,6 +56,7 @@ Provide a fast, secure, self-hosted email workspace where users can connect mult
 - TypeScript everywhere
 - Tailwind-based UI styling system
 - Dockerized runtime and reproducible local/prod behavior
+- Typechecking validation must run in the Docker runtime (containerized execution), not as a host-only prerequisite
 
 ### Operational constraints
 
@@ -63,6 +64,9 @@ Provide a fast, secure, self-hosted email workspace where users can connect mult
 - Backup/restore workflow must be documented
 - Runtime should be resource-efficient for small servers
 - Docker Compose must support Traefik reverse-proxy integration via labels and external `traefik` network
+- Standard validation command for type safety should be documented as `docker compose exec -T raven npm run typecheck`
+- After completing implementation work, the environment should be rebuilt and restarted (`docker compose down --remove-orphans && docker compose up -d --build`) before final verification
+- Final verification should include a basic smoke + regression pass executed in-container prior to handoff
 
 ## Architecture Direction
 
