@@ -197,6 +197,9 @@ Raven is a self-hostable web email client that aggregates multiple inboxes into 
 - Prefer `docker compose` / `make` targets that execute commands inside containers over host-level package manager commands.
 - Direct host `npm` usage should be treated as exceptional (for example, when explicitly required for a container build/debug scenario).
 - Validation and CI docs should assume containerized execution paths by default.
+- Typechecking must be executed in-container using the Raven service (`docker compose exec -T raven npm run typecheck`) for local validation and CI parity.
+- After task implementation is complete, developers should run `docker compose down --remove-orphans && docker compose up -d --build` before final preview/verification.
+- Final verification should run a basic smoke test and regression test suite in-container before handoff.
 
 ## 6.1 Container Design
 

@@ -3,6 +3,7 @@ import type { AccountRecord } from '../../../repositories/accounts.repository'
 import { decryptSecret } from '../../../utils/security'
 import { DomainError } from '../../../utils/domain-error'
 import type { AdapterFolder, AdapterMessage, AdapterSyncResult, SyncProviderAdapter } from './types'
+import { sanitizeEmailHtml } from './html-sanitizer'
 
 const MAX_INITIAL_MESSAGES = 20
 const MAX_INCREMENTAL_MESSAGES = 50
@@ -185,20 +186,6 @@ function htmlToText(html: string): string {
     .trim()
 }
 
-function sanitizeHtml(html: string): string {
-  const escaped = String(html || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-
-  return escaped
-    .replace(/\r\n/g, '\n')
-    .replace(/\n/g, '<br/>')
-    .trim()
-}
-
 function isAttachment(headers: Record<string, string>): boolean {
   const disposition = String(headers['content-disposition'] || '').toLowerCase()
   return disposition.indexOf('attachment') >= 0
@@ -239,7 +226,7 @@ function extractBestBody(raw: string): ExtractedBody {
           }
           if (nestedType.mimeType === 'text/html' && !htmlText) {
             htmlText = htmlToText(decodedNested)
-            htmlSanitized = sanitizeHtml(decodedNested)
+            htmlSanitized = sanitizeEmailHtml(decodedNested)
           }
         }
         continue
@@ -251,7 +238,7 @@ function extractBestBody(raw: string): ExtractedBody {
       }
       if (partType.mimeType === 'text/html' && !htmlText) {
         htmlText = htmlToText(decoded)
-        htmlSanitized = sanitizeHtml(decoded)
+        htmlSanitized = sanitizeEmailHtml(decoded)
       }
     }
 
@@ -270,7 +257,7 @@ function extractBestBody(raw: string): ExtractedBody {
   return {
     bodyText,
     snippet,
-    bodyHtmlSanitized: topType.mimeType === 'text/html' ? sanitizeHtml(decoded) : null,
+    bodyHtmlSanitized: topType.mimeType === 'text/html' ? sanitizeEmailHtml(decoded) : null,
   }
 }
 

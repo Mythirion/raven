@@ -176,16 +176,91 @@ function compactPreview(input: string | null | undefined): string {
 
 function rowClass(messageId: string) {
   const isActive = messagesState.selectedMessageId.value === messageId
+  const isSelected = messagesState.selectedMessageIds.value.includes(messageId)
+
   if (themeMode.value === 'dark') {
-    return isActive
-      ? 'border-sky-700 bg-sky-900/40 text-sky-100'
-      : 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800'
+    if (isActive || isSelected) {
+      return 'border-sky-700 bg-sky-900/40 text-sky-100'
+    }
+    return 'border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800'
   }
 
-  return isActive
-    ? 'border-sky-400 bg-sky-50/60 text-slate-900'
-    : 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
+  if (isActive || isSelected) {
+    return 'border-sky-400 bg-sky-50/60 text-slate-900'
+  }
+
+  return 'border-slate-200 bg-white text-slate-900 hover:bg-slate-50'
 }
+
+async function onMessageRowClick(event: MouseEvent, messageId: string) {
+  if (event.ctrlKey || event.metaKey) {
+    messagesState.toggleSelectedMessage(messageId)
+    return
+  }
+
+  await inspectMessage(messageId)
+}
+
+function extractHtmlBackgroundColor(html: string | null | undefined): string | null {
+  const source = String(html || '')
+  if (!source) {
+    return null
+  }
+
+  const bodyTag = source.match(/<body[^>]*>/i)?.[0] || ''
+  if (bodyTag) {
+    const styleColor = bodyTag.match(/background(?:-color)?\s*:\s*([^;"']+)/i)?.[1]?.trim()
+    if (styleColor) {
+      return styleColor
+    }
+
+    const bgColor = bodyTag.match(/bgcolor\s*=\s*['"]?([^'"\s>]+)/i)?.[1]?.trim()
+    if (bgColor) {
+      return bgColor
+    }
+  }
+
+  return null
+}
+
+const detailHtmlPaneStyle = computed(() => {
+  if (htmlMode.value !== 'html') {
+    return undefined
+  }
+
+  const color = extractHtmlBackgroundColor(messagesState.messageDetail.value?.bodyHtmlSanitized)
+  if (!color) {
+    return undefined
+  }
+
+  return {
+    backgroundColor: color,
+  }
+})
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+const detailHtmlSrcDoc = computed(() => {
+  const detail = messagesState.messageDetail.value
+  if (!detail) {
+    return ''
+  }
+
+  const sanitizedHtml = String(detail.bodyHtmlSanitized || '').trim()
+  if (sanitizedHtml) {
+    return sanitizedHtml
+  }
+
+  const fallbackText = detail.bodyText || detail.snippet || '(no sanitized html body)'
+  return `<p>${escapeHtml(fallbackText)}</p>`
+})
 
 async function runSingleAction(
   messageId: string,
@@ -245,9 +320,14 @@ onBeforeUnmount(() => {
 <template>
   <div class="space-y-4">
     <header class="space-y-2">
-      <h1 class="text-2xl font-bold tracking-tight">Messages</h1>
-      <p class="text-sm text-slate-600">
-        Mock-up: Discord/Outlook-inspired account rail + folder rail + message workspace.
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h1 class="text-2xl font-bold tracking-tight">Messages</h1>
+        <BaseButton variant="secondary" :disabled="messagesState.busy.value" @click="refreshWithCurrentFilters">
+          {{ messagesState.busy.value ? 'Refreshing…' : 'Refresh / Sync' }}
+        </BaseButton>
+      </div>
+      <p class="text-xs text-slate-500">
+        {{ activeAccountId ? 'Scoped account' : 'All accounts' }} · {{ activeFolderId || 'all folders' }}
       </p>
     </header>
 
@@ -258,16 +338,7 @@ onBeforeUnmount(() => {
       {{ messagesState.successMessage.value }}
     </div>
 
-    <BasePanel title="Message Workspace" description="List/detail with single and bulk actions">
-        <div class="mb-3 flex flex-wrap items-center gap-2">
-          <BaseButton variant="secondary" :disabled="messagesState.busy.value" @click="refreshWithCurrentFilters">
-            {{ messagesState.busy.value ? 'Refreshing…' : 'Refresh' }}
-          </BaseButton>
-          <span class="text-xs text-slate-500">
-            {{ activeAccountId ? 'Scoped account' : 'All accounts' }} · {{ activeFolderId || 'all folders' }}
-          </span>
-        </div>
-
+    <BasePanel>
         <div ref="workspaceRef" class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_0.5rem_minmax(0,1fr)]" :style="workspaceStyle">
           <section :class="mobilePane === 'detail' ? 'hidden lg:block' : 'block'">
             <p class="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Message list</p>
@@ -315,7 +386,7 @@ onBeforeUnmount(() => {
             :class="rowClass(message.id)"
             role="button"
             tabindex="0"
-            @click="inspectMessage(message.id)"
+            @click="onMessageRowClick($event, message.id)"
             @keydown.enter.prevent="inspectMessage(message.id)"
             @keydown.space.prevent="inspectMessage(message.id)"
           >
@@ -325,7 +396,7 @@ onBeforeUnmount(() => {
                   type="checkbox"
                   :checked="messagesState.selectedMessageIds.value.includes(message.id)"
                   @click.stop
-                  @change="messagesState.toggleSelectedMessage(message.id); inspectMessage(message.id)"
+                  @change="messagesState.toggleSelectedMessage(message.id)"
                 >
                 select
               </label>
@@ -408,10 +479,14 @@ onBeforeUnmount(() => {
             class="max-h-[calc(70vh-5rem)] overflow-auto whitespace-pre-wrap break-words rounded-md bg-slate-950 p-3 text-xs text-slate-100"
           >{{ messagesState.messageDetail.value.bodyText || messagesState.messageDetail.value.snippet || '(no text body)' }}</pre>
 
-          <div
+          <iframe
             v-else
-            class="max-h-[calc(70vh-5rem)] overflow-auto break-words rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-800 [&_*]:max-w-full [&_*]:break-words"
-            v-html="messagesState.messageDetail.value.bodyHtmlSanitized || `<p>${messagesState.messageDetail.value.bodyText || messagesState.messageDetail.value.snippet || '(no sanitized html body)'}</p>`"
+            title="Sanitized message html"
+            class="h-[calc(70vh-5rem)] w-full rounded-md border border-slate-200 bg-white"
+            :style="detailHtmlPaneStyle"
+            sandbox
+            referrerpolicy="no-referrer"
+            :srcdoc="detailHtmlSrcDoc"
           />
         </div>
           </section>
